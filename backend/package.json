@@ -4,6 +4,11 @@
   "description": "Admin panel and API for portfolio",
   "main": "server.js",
   "scripts": {
+  "start": "node server.js",
+  "dev": "nodemon server.js",
+  "postinstall": "apt-get update && apt-get install -y ffmpeg python3-pip && pip3 install yt-dlp"
+  },
+  "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
