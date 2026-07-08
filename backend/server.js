@@ -16,13 +16,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// ✅ Allow requests from file:// (null origin) and localhost
 app.use(cors({
   origin: [
-    'http://localhost:3000', 
-    'http://localhost:5001', 
-    'https://portfolio-muhammad-ejaz.netlify.app',  
-    'https://portfolio-admin.vercel.app'            
+    'http://localhost:3000',
+    'http://localhost:5001',
+    'https://portfolio-muhammad-ejaz.netlify.app',
+    'https://portfolio-admin-eight-xi.vercel.app',  // ← ADD THIS
+    'https://portfolio-admin-qf348v9ge-malikejazpanuhans-projects.vercel.app'  // ← AND THIS (auto-generated)
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
