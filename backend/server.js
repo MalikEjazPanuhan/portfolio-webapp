@@ -95,7 +95,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============ START SERVER ============
-const PORT = process.env.PORT || 5001;
 const HOST = '0.0.0.0';  // ← Required for Render
 
 app.listen(PORT, HOST, () => {
