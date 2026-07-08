@@ -18,7 +18,12 @@ app.use(helmet({
 
 // ✅ Allow requests from file:// (null origin) and localhost
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5001', 'null', '*'],
+  origin: [
+    'http://localhost:3000', 
+    'http://localhost:5001', 
+    'https://portfolio-muhammad-ejaz.netlify.app',  
+    'https://portfolio-admin.vercel.app'            
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
