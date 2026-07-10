@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 // Create context
 const AuthContext = createContext();
 
-// API base URL
+// ✅ FIXED: Use environment variable with fallback
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // ============ AUTH PROVIDER ============
