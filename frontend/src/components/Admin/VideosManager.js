@@ -7,7 +7,6 @@ import { FaPlus, FaTrash, FaVideo, FaPlay, FaUpload, FaDownload } from 'react-ic
 import './Admin.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-const VIDEO_BASE_URL = 'http://localhost:5001';
 
 const VideosManager = () => {
   const { token } = useAuth();
@@ -299,7 +298,8 @@ const VideosManager = () => {
               <div className="video-thumbnail">
                 <video 
                   controls 
-                  src={`${VIDEO_BASE_URL}${video.path}`}
+                  src={video.path}
+
                   style={{ 
                     width: '100%', 
                     height: '160px', 
