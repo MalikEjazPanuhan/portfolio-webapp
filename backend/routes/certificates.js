@@ -112,7 +112,6 @@ module.exports = (supabase) => {
       if (issuer !== undefined) updates.issuer = issuer;
       if (issue_date !== undefined) updates.issue_date = issue_date;
       if (featured !== undefined) updates.featured = featured === 'true' || featured === true;
-      updates.updated_at = new Date().toISOString();
 
       const { data: certificate, error } = await supabase
         .from('certificates')
