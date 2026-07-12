@@ -7,22 +7,9 @@ const fs = require('fs');
 
 module.exports = (supabase) => {
   
-  // ============ MULTER CONFIGURATION ============
-  // Ensure uploads directory exists
-  const uploadDir = path.join(__dirname, '../uploads');
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-  });
+  // ============ MULTER CONFIGURATION (Memory Storage) ============
+  // We use memory storage so we can upload the buffer directly to Supabase.
+  const storage = multer.memoryStorage();
 
   const fileFilter = (req, file, cb) => {
     const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
@@ -83,7 +70,7 @@ module.exports = (supabase) => {
         return res.status(400).json({ error: 'No video uploaded' });
       }
 
-      // Validate project exists
+      // Validate project exists (if project_id is provided)
       if (project_id) {
         const { data: project, error: projectError } = await supabase
           .from('projects')
@@ -92,48 +79,61 @@ module.exports = (supabase) => {
           .single();
 
         if (projectError) {
-          // Delete uploaded file if project doesn't exist
-          fs.unlinkSync(req.file.path);
           return res.status(404).json({ error: 'Project not found' });
         }
       }
 
-      // Create video record in database
+      // ----- UPLOAD TO SUPABASE STORAGE -----
+      const fileExt = path.extname(req.file.originalname);
+      const fileName = `video_${Date.now()}${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: '3600'
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        return res.status(500).json({ error: 'Failed to upload video to storage' });
+      }
+
+      // ----- GET PUBLIC URL -----
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(fileName);
+      const publicUrl = publicUrlData.publicUrl;
+
+      // ----- CREATE DATABASE RECORD WITH PUBLIC URL -----
       const videoData = {
         title: title || req.file.originalname,
         description: description || '',
         project_id: project_id || null,
-        filename: req.file.filename,
-        path: `/uploads/${req.file.filename}`,
+        filename: fileName,                 // store the storage file name for later deletion
+        path: publicUrl,                    // store the full public URL (this is what frontend uses)
         thumbnail: req.body.thumbnail || null,
         duration: req.body.duration || '00:00',
         category: category || 'demo',
         views: 0
       };
 
-      const { data: video, error } = await supabase
+      const { data: video, error: dbError } = await supabase
         .from('videos')
         .insert([videoData])
         .select()
         .single();
 
-      if (error) {
-        // Delete uploaded file if database insert fails
-        fs.unlinkSync(req.file.path);
-        throw error;
+      if (dbError) {
+        // Rollback: delete the uploaded file from Supabase
+        await supabase.storage.from('videos').remove([fileName]);
+        console.error('Database insert error, rolled back storage:', dbError);
+        return res.status(500).json({ error: 'Database error, video not saved' });
       }
 
       res.status(201).json(video);
     } catch (error) {
       console.error('Upload video error:', error);
-      // Clean up uploaded file if error
-      if (req.file && fs.existsSync(req.file.path)) {
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch (unlinkError) {
-          console.error('Error deleting file:', unlinkError);
-        }
-      }
       res.status(500).json({ error: error.message });
     }
   });
@@ -196,10 +196,10 @@ module.exports = (supabase) => {
     try {
       const { id } = req.params;
 
-      // Get video record to find file
+      // Get video record to know the filename
       const { data: video, error: fetchError } = await supabase
         .from('videos')
-        .select('*')
+        .select('filename')
         .eq('id', id)
         .single();
 
@@ -207,25 +207,25 @@ module.exports = (supabase) => {
         return res.status(404).json({ error: 'Video not found' });
       }
 
-      // Delete file from filesystem
-      if (video.path) {
-        const filePath = path.join(__dirname, '..', video.path);
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-          } catch (unlinkError) {
-            console.error('Error deleting file:', unlinkError);
-          }
+      // ----- DELETE FROM SUPABASE STORAGE -----
+      if (video.filename) {
+        const { error: storageError } = await supabase.storage
+          .from('videos')
+          .remove([video.filename]);
+
+        if (storageError) {
+          console.error('Storage delete error (continuing with DB delete):', storageError);
+          // We continue anyway – the database record will be removed.
         }
       }
 
-      // Delete from database
-      const { error } = await supabase
+      // ----- DELETE FROM DATABASE -----
+      const { error: dbError } = await supabase
         .from('videos')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (dbError) throw dbError;
 
       res.json({ success: true, message: 'Video deleted successfully' });
     } catch (error) {
