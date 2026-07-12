@@ -1,115 +1,101 @@
 // F:\portfolio-webapp\backend\routes\certificates.js
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 module.exports = (supabase) => {
+  
+  // Use memory storage for direct upload to Supabase
+  const storage = multer.memoryStorage();
+  const fileFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid image format. Please upload JPEG, PNG, GIF, or WEBP.'), false);
+    }
+  };
+
+  const upload = multer({
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  });
 
   // ============ GET ALL CERTIFICATES ============
   router.get('/', async (req, res) => {
     try {
-      const { data, error } = await supabase
+      const { data: certificates, error } = await supabase
         .from('certificates')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
-      res.json(data || []);
+      res.json(certificates);
     } catch (error) {
       console.error('Get certificates error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // ============ GET FEATURED CERTIFICATES ============
-  router.get('/featured', async (req, res) => {
+  // ============ UPLOAD CERTIFICATE ============
+  router.post('/', upload.single('image'), async (req, res) => {
     try {
-      const { data, error } = await supabase
-        .from('certificates')
-        .select('*')
-        .eq('featured', true)
-        .order('issue_date', { ascending: false });
-      
-      if (error) throw error;
-      res.json(data || []);
-    } catch (error) {
-      console.error('Get featured certificates error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+      const { title, issuer, issue_date, featured } = req.body;
 
-  // ============ CREATE CERTIFICATE ============
-  router.post('/', async (req, res) => {
-    try {
-      const { title, issuer, issue_date, expiry_date, credential_url, image_url, category, featured } = req.body;
-
-      // ✅ Validate required fields
-      if (!title) {
-        return res.status(400).json({ error: 'Title is required' });
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image uploaded' });
       }
 
-      // ✅ Convert empty strings to null
-      const data = {
-        title: title.trim(),
-        issuer: issuer || null,
+      // Upload to Supabase Storage
+      const fileExt = path.extname(req.file.originalname);
+      const fileName = `cert_${Date.now()}${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('certificates')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          cacheControl: '3600'
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        return res.status(500).json({ error: 'Failed to upload certificate to storage' });
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('certificates')
+        .getPublicUrl(fileName);
+      const publicUrl = publicUrlData.publicUrl;
+
+      // Create record in database
+      const certificateData = {
+        title: title || 'Certificate',
+        issuer: issuer || '',
         issue_date: issue_date || null,
-        expiry_date: expiry_date || null,
-        credential_url: credential_url || null,
-        image_url: image_url || null,
-        category: category || 'Azure',
-        featured: featured || false
+        image_url: publicUrl, // store full public URL
+        featured: featured === 'true' || featured === true ? true : false,
+        filename: fileName // for future deletion
       };
 
-      const { data: result, error } = await supabase
+      const { data: certificate, error: dbError } = await supabase
         .from('certificates')
-        .insert([data])
-        .select();
+        .insert([certificateData])
+        .select()
+        .single();
 
-      if (error) throw error;
-      res.status(201).json(result[0]);
-    } catch (error) {
-      console.error('Create certificate error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ============ UPDATE CERTIFICATE ============
-  router.put('/:id', async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { title, issuer, issue_date, expiry_date, credential_url, image_url, category, featured } = req.body;
-
-      // ✅ Validate required fields
-      if (!title) {
-        return res.status(400).json({ error: 'Title is required' });
+      if (dbError) {
+        // Rollback: delete uploaded file
+        await supabase.storage.from('certificates').remove([fileName]);
+        console.error('Database insert error:', dbError);
+        return res.status(500).json({ error: 'Database error' });
       }
 
-      // ✅ Convert empty strings to null
-      const updates = {
-        title: title.trim(),
-        issuer: issuer || null,
-        issue_date: issue_date || null,
-        expiry_date: expiry_date || null,
-        credential_url: credential_url || null,
-        image_url: image_url || null,
-        category: category || 'Azure',
-        featured: featured || false
-      };
-
-      const { data, error } = await supabase
-        .from('certificates')
-        .update(updates)
-        .eq('id', id)
-        .select();
-
-      if (error) throw error;
-      
-      if (!data || data.length === 0) {
-        return res.status(404).json({ error: 'Certificate not found' });
-      }
-      
-      res.json(data[0]);
+      res.status(201).json(certificate);
     } catch (error) {
-      console.error('Update certificate error:', error);
+      console.error('Upload certificate error:', error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -119,13 +105,31 @@ module.exports = (supabase) => {
     try {
       const { id } = req.params;
 
-      const { error } = await supabase
+      // Get certificate to find filename
+      const { data: cert, error: fetchError } = await supabase
+        .from('certificates')
+        .select('filename')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        return res.status(404).json({ error: 'Certificate not found' });
+      }
+
+      // Delete from Supabase Storage
+      if (cert.filename) {
+        await supabase.storage.from('certificates').remove([cert.filename]);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
         .from('certificates')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
-      res.json({ success: true, message: 'Certificate deleted successfully' });
+      if (dbError) throw dbError;
+
+      res.json({ success: true });
     } catch (error) {
       console.error('Delete certificate error:', error);
       res.status(500).json({ error: error.message });
