@@ -7,16 +7,31 @@ module.exports = (supabase) => {
   // ============ GET ALL PROJECTS ============
   router.get('/', async (req, res) => {
     try {
+      // 1. Fetch projects and their associated videos (join via foreign key)
       const { data: projects, error } = await supabase
         .from('projects')
-        .select('*')
+        .select(`
+          *,
+          videos ( id, path, thumbnail, created_at )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Get ratings for each project
-      const projectsWithRatings = await Promise.all(
+      // 2. Process each project: extract video_url and compute ratings
+      const projectsWithData = await Promise.all(
         projects.map(async (project) => {
+          // --- Extract the most recent video's path (full Supabase URL) ---
+          let videoUrl = null;
+          if (project.videos && project.videos.length > 0) {
+            // Sort videos by created_at descending (most recent first)
+            const sortedVideos = [...project.videos].sort(
+              (a, b) => new Date(b.created_at) - new Date(a.created_at)
+            );
+            videoUrl = sortedVideos[0].path; // full public URL from Supabase
+          }
+
+          // --- Get ratings (same as before) ---
           const { data: ratings, error: ratingError } = await supabase
             .from('ratings')
             .select('rating')
@@ -25,22 +40,33 @@ module.exports = (supabase) => {
 
           if (ratingError) {
             console.error('Rating error:', ratingError);
-            return { ...project, avg_rating: 0, rating_count: 0 };
+            return {
+              ...project,
+              avg_rating: 0,
+              rating_count: 0,
+              video_url: videoUrl,
+              // remove the nested videos array so we don't send it twice
+              videos: undefined
+            };
           }
 
           const avgRating = ratings.length > 0
             ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
             : 0;
 
+          // Remove the nested videos array from the project object
+          const { videos, ...projectWithoutVideos } = project;
+
           return {
-            ...project,
+            ...projectWithoutVideos,
             avg_rating: Math.round(avgRating * 10) / 10,
-            rating_count: ratings.length
+            rating_count: ratings.length,
+            video_url: videoUrl
           };
         })
       );
 
-      res.json(projectsWithRatings);
+      res.json(projectsWithData);
     } catch (error) {
       console.error('Get projects error:', error);
       res.status(500).json({ error: error.message });
