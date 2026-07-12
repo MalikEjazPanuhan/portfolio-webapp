@@ -100,6 +100,38 @@ module.exports = (supabase) => {
     }
   });
 
+  // ============ UPDATE CERTIFICATE (Admin Only) ============
+  router.put('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, issuer, issue_date, featured } = req.body;
+
+      // Build update object (only include fields that are provided)
+      const updates = {};
+      if (title !== undefined) updates.title = title;
+      if (issuer !== undefined) updates.issuer = issuer;
+      if (issue_date !== undefined) updates.issue_date = issue_date;
+      if (featured !== undefined) updates.featured = featured === 'true' || featured === true;
+      updates.updated_at = new Date().toISOString();
+
+      const { data: certificate, error } = await supabase
+        .from('certificates')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        return res.status(404).json({ error: 'Certificate not found' });
+      }
+
+      res.json(certificate);
+    } catch (error) {
+      console.error('Update certificate error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ============ DELETE CERTIFICATE ============
   router.delete('/:id', async (req, res) => {
     try {
