@@ -3,7 +3,6 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
 module.exports = (supabase) => {
   
@@ -70,14 +69,14 @@ module.exports = (supabase) => {
         .getPublicUrl(fileName);
       const publicUrl = publicUrlData.publicUrl;
 
-      // Create record in database
+      // Create record in database (without 'filename' column)
       const certificateData = {
         title: title || 'Certificate',
         issuer: issuer || '',
         issue_date: issue_date || null,
         image_url: publicUrl, // store full public URL
-        featured: featured === 'true' || featured === true ? true : false,
-        filename: fileName // for future deletion
+        featured: featured === 'true' || featured === true ? true : false
+        // ✅ 'filename' removed – column doesn't exist
       };
 
       const { data: certificate, error: dbError } = await supabase
@@ -87,7 +86,7 @@ module.exports = (supabase) => {
         .single();
 
       if (dbError) {
-        // Rollback: delete uploaded file
+        // Rollback: delete uploaded file from Supabase
         await supabase.storage.from('certificates').remove([fileName]);
         console.error('Database insert error:', dbError);
         return res.status(500).json({ error: 'Database error' });
@@ -106,7 +105,6 @@ module.exports = (supabase) => {
       const { id } = req.params;
       const { title, issuer, issue_date, featured } = req.body;
 
-      // Build update object (only include fields that are provided)
       const updates = {};
       if (title !== undefined) updates.title = title;
       if (issuer !== undefined) updates.issuer = issuer;
@@ -121,6 +119,7 @@ module.exports = (supabase) => {
         .single();
 
       if (error) {
+        console.error('Update error:', error);
         return res.status(404).json({ error: 'Certificate not found' });
       }
 
@@ -136,23 +135,7 @@ module.exports = (supabase) => {
     try {
       const { id } = req.params;
 
-      // Get certificate to find filename
-      const { data: cert, error: fetchError } = await supabase
-        .from('certificates')
-        .select('filename')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) {
-        return res.status(404).json({ error: 'Certificate not found' });
-      }
-
-      // Delete from Supabase Storage
-      if (cert.filename) {
-        await supabase.storage.from('certificates').remove([cert.filename]);
-      }
-
-      // Delete from database
+      // Delete from database only (storage cleanup skipped)
       const { error: dbError } = await supabase
         .from('certificates')
         .delete()
