@@ -77,20 +77,22 @@ const CertificatesManager = () => {
     }
   };
 
+  // ✅ FIXED: Correct endpoint and response handling
   const uploadImage = async () => {
     if (!selectedFile) return null;
-    
+
     const uploadData = new FormData();
-    uploadData.append('image', selectedFile);
-    
+    uploadData.append('image', selectedFile); // Must match backend field name
+
     try {
-      const response = await axios.post(`${API_URL}/upload/certificate`, uploadData, {
+      const response = await axios.post(`${API_URL}/certificates`, uploadData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
-      return response.data.url;
+      // Backend returns the full Supabase public URL as 'image_url'
+      return response.data.image_url;
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload image');
@@ -98,44 +100,58 @@ const CertificatesManager = () => {
     }
   };
 
+  // ✅ UPDATED: Handles both new (multipart) and edit (JSON) elegantly
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUploading(true);
-    
+
     try {
-      let imageUrl = formData.image_url;
-      
-      if (selectedFile) {
-        const uploadedUrl = await uploadImage();
-        if (uploadedUrl) {
-          imageUrl = uploadedUrl;
-        }
-      }
-      
-      // ✅ Clean up empty strings before sending
-      const data = {
-        title: formData.title,
-        issuer: formData.issuer || null,
-        issue_date: formData.issue_date || null,
-        expiry_date: formData.expiry_date || null,
-        credential_url: formData.credential_url || null,
-        image_url: imageUrl || null,
-        category: formData.category || 'Azure',
-        featured: formData.featured || false
+      const config = {
+        headers: { 'Authorization': `Bearer ${token}` }
       };
-      
+
       if (editingCert) {
-        await axios.put(`${API_URL}/certificates/${editingCert.id}`, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // For updates: if a new file is selected, upload it first
+        let imageUrl = formData.image_url;
+        if (selectedFile) {
+          const uploadedUrl = await uploadImage();
+          if (uploadedUrl) imageUrl = uploadedUrl;
+        }
+
+        // Send JSON update (PUT)
+        await axios.put(`${API_URL}/certificates/${editingCert.id}`, {
+          title: formData.title,
+          issuer: formData.issuer || null,
+          issue_date: formData.issue_date || null,
+          expiry_date: formData.expiry_date || null,
+          credential_url: formData.credential_url || null,
+          image_url: imageUrl || null,
+          category: formData.category || 'Azure',
+          featured: formData.featured || false
+        }, config);
         toast.success('✅ Certificate updated!');
       } else {
-        await axios.post(`${API_URL}/certificates`, data, {
-          headers: { Authorization: `Bearer ${token}` }
+        // For new certificates, send multipart form data directly
+        const formDataToSend = new FormData();
+        formDataToSend.append('title', formData.title);
+        formDataToSend.append('issuer', formData.issuer || '');
+        formDataToSend.append('issue_date', formData.issue_date || '');
+        formDataToSend.append('expiry_date', formData.expiry_date || '');
+        formDataToSend.append('credential_url', formData.credential_url || '');
+        formDataToSend.append('category', formData.category || 'Azure');
+        formDataToSend.append('featured', formData.featured ? 'true' : 'false');
+
+        if (selectedFile) {
+          formDataToSend.append('image', selectedFile);
+        }
+
+        await axios.post(`${API_URL}/certificates`, formDataToSend, {
+          ...config,
+          headers: { ...config.headers, 'Content-Type': 'multipart/form-data' }
         });
         toast.success('✅ Certificate added!');
       }
-      
+
       setShowModal(false);
       setEditingCert(null);
       setSelectedFile(null);
@@ -143,7 +159,7 @@ const CertificatesManager = () => {
       fetchCertificates();
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save certificate');
+      toast.error(error.response?.data?.error || 'Failed to save certificate');
     } finally {
       setUploading(false);
     }
