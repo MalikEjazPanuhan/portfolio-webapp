@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
 // Import your CSS styles for the portfolio if available, or load them
-import '../../../public/style.css'; 
+import '../../style.css'; 
 
 const PublicPortfolio = () => {
   const [projects, setProjects] = useState([]);
