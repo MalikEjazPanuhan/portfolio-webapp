@@ -35,61 +35,100 @@ const PublicPortfolio = () => {
   }, []);
 
   return (
-    <div className="portfolio-container" style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="container">
       {/* Sidebar Navigation */}
-      <aside className="sidebar" style={{ width: '250px', flexShrink: 0, padding: '20px' }}>
-        <div className="sidebar-header">
+      <aside className="sidebar">
+        <div className="logo-container">
           <h2>Portfolio 360</h2>
-          <span className="subtitle">DEVELOPER HUB</span>
+          <p className="developer-hub">DEVELOPER HUB</p>
         </div>
         
-        <nav className="nav-menu" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '30px' }}>
-          <a href="#hero" className="nav-item">
-            <i className="fas fa-user"></i> Profile
-          </a>
-          <a href="#projects" className="nav-item">
-            <i className="fas fa-code"></i> Projects
-          </a>
-          <a href="#certifications" className="nav-item">
-            <i className="fas fa-certificate"></i> Certifications
-          </a>
-          <a href="/login" className="nav-item admin-link" style={{ marginTop: '20px', color: '#61dafb' }}>
-            <i className="fas fa-lock"></i> Go to Admin Dashboard
-          </a>
+        <nav className="nav-links">
+          <a href="#profile" className="nav-link"><i className="fas fa-user"></i> Profile</a>
+          <a href="#portfolio" className="nav-link"><i className="fas fa-briefcase"></i> Portfolio</a>
+          <a href="#projects" className="nav-link active"><i className="fas fa-code"></i> Projects</a>
+          <a href="#github" className="nav-link"><i className="fab fa-github"></i> GitHub</a>
+          <a href="#huggingface" className="nav-link"><i className="fas fa-robot"></i> Hugging Face</a>
+          <a href="#tools" className="nav-link"><i className="fas fa-tools"></i> Tools</a>
+          <a href="#certifications" className="nav-link"><i className="fas fa-certificate"></i> Certifications</a>
+          <a href="#azure" className="nav-link"><i className="fab fa-microsoft"></i> Microsoft Azure</a>
+          <a href="#python" className="nav-link"><i className="fab fa-python"></i> Python</a>
+          <a href="#frameworks" className="nav-link"><i className="fas fa-layer-group"></i> Frameworks</a>
+          <a href="#libraries" className="nav-link"><i className="fas fa-book"></i> Libraries</a>
+          <a href="#n8n" className="nav-link"><i className="fas fa-network-wired"></i> N8N</a>
+          <a href="#kaggl" className="nav-link"><i className="fab fa-kaggle"></i> Kaggle</a>
+          
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <a href="/login" className="nav-link" style={{ color: '#61dafb' }}>
+              <i className="fas fa-lock"></i> Go to Admin Dashboard
+            </a>
+          </div>
         </nav>
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content" style={{ flexGrow: 1, padding: '40px' }}>
-        {/* Hero Section */}
-        <header id="hero" className="hero-section">
+      <main className="content">
+        {/* Top Header / Theme Toggle */}
+        <div className="top-bar">
+          <button id="theme-toggle" className="theme-toggle-btn" onClick={() => document.body.classList.toggle('light-theme')}>
+            <i className="fas fa-moon"></i>
+          </button>
+        </div>
+
+        {/* Hero / Profile Section */}
+        <section id="profile" className="hero-section">
           <h1>Muhammad Ejaz</h1>
-          <p className="hero-title">Developer Hub & AI Solutions</p>
-          <a href="/login" className="cta-button" style={{ display: 'inline-block', marginTop: '15px' }}>
+          <p className="hero-subtitle">Developer Hub & AI Solutions</p>
+          <a href="/login" className="cta-button">
             <i className="fas fa-rocket"></i> Go to Admin Dashboard <i className="fas fa-arrow-right"></i>
           </a>
-        </header>
+        </section>
 
         {/* Projects Section */}
-        <section id="projects" className="section-container" style={{ marginTop: '50px' }}>
-          <div className="section-header">
-            <h2>Projects</h2>
-            <p>End-to-end AI solutions and applications I've built.</p>
+        <section id="projects" className="section">
+          <div className="section-title-container">
+            <h2><i className="fas fa-folder-open"></i> Projects</h2>
           </div>
+          <p className="section-desc">End-to-end AI solutions and applications I've built.</p>
           
           {loading ? (
-            <p>Loading projects...</p>
+            <p className="loading-text">Loading projects...</p>
           ) : (
-            <div className="projects-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            <div className="grid">
               {projects.map((proj, idx) => (
-                <div key={proj._id || idx} className="project-card" style={{ border: '1px solid #333', padding: '20px', borderRadius: '8px' }}>
-                  <h3>{proj.title || proj.name}</h3>
-                  <p>{proj.description}</p>
-                  {proj.link && (
-                    <a href={proj.link} target="_blank" rel="noopener noreferrer" className="project-link">
-                      View Project <i className="fas fa-external-link-alt"></i>
-                    </a>
+                <div key={proj._id || idx} className="card">
+                  <div className="card-top">
+                    <h3>{proj.title || proj.name}</h3>
+                    <span className="badge-live"><i className="fas fa-circle"></i> Live</span>
+                  </div>
+                  <p className="card-sub">{proj.description}</p>
+                  
+                  {proj.videoUrl && (
+                    <div className="video-container">
+                      <iframe src={proj.videoUrl} title={proj.title} allowFullScreen></iframe>
+                    </div>
                   )}
+
+                  {proj.techStack && (
+                    <div className="tags">
+                      {Array.isArray(proj.techStack) ? proj.techStack.map((tech, i) => (
+                        <span key={i} className="tag">{tech}</span>
+                      )) : <span className="tag">{proj.techStack}</span>}
+                    </div>
+                  )}
+
+                  <div className="card-footer-actions">
+                    {proj.link && (
+                      <a href={proj.link} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                        Live Demo
+                      </a>
+                    )}
+                    {proj.github && (
+                      <a href={proj.github} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+                        GitHub
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -97,20 +136,19 @@ const PublicPortfolio = () => {
         </section>
 
         {/* Certifications Section */}
-        <section id="certifications" className="section-container" style={{ marginTop: '50px' }}>
-          <div className="section-header">
-            <h2>Certifications</h2>
+        <section id="certifications" className="section">
+          <div className="section-title-container">
+            <h2><i className="fas fa-certificate"></i> Certifications</h2>
           </div>
           
           {loading ? (
-            <p>Loading certificates...</p>
+            <p className="loading-text">Loading certificates...</p>
           ) : (
-            <div className="certifications-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            <div className="grid">
               {certificates.map((cert, idx) => (
-                <div key={cert._id || idx} className="cert-card" style={{ border: '1px solid #333', padding: '20px', borderRadius: '8px' }}>
-                  <i className="fas fa-award" style={{ fontSize: '24px', marginBottom: '10px' }}></i>
+                <div key={cert._id || idx} className="card">
                   <h3>{cert.title}</h3>
-                  <p>{cert.issuer}</p>
+                  <p className="card-sub">{cert.issuer}</p>
                 </div>
               ))}
             </div>
