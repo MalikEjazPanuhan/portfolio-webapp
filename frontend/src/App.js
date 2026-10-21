@@ -1,5 +1,4 @@
-// F:\portfolio-webapp\frontend\src\App.js
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -17,7 +16,7 @@ import VideosManager from './components/Admin/VideosManager';
 import RatingsManager from './components/Admin/RatingsManager';
 import ContactsManager from './components/Admin/ContactsManager';
 import Analytics from './components/Admin/Analytics';
-import CertificatesManager from './components/Admin/CertificatesManager'; // ✅ ADD THIS
+import CertificatesManager from './components/Admin/CertificatesManager';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -38,7 +37,15 @@ function App() {
             <Route path="/login" element={<Login />} />
             
             {/* Protected Admin Routes */}
-            <Route path="/" element={
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Dashboard />
+                </AdminLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/dashboard" element={
               <ProtectedRoute>
                 <AdminLayout>
                   <Dashboard />
@@ -86,7 +93,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* ✅ ADD THIS ROUTE */}
             <Route path="/certificates" element={
               <ProtectedRoute>
                 <AdminLayout>
