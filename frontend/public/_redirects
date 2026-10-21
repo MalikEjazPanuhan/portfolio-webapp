@@ -1,7 +1,3 @@
-﻿/login         /index.html   200
-/admin         /index.html   200
-/dashboard     /index.html   200
-/projects      /index.html   200
-/videos        /index.html   200
-/analytics     /index.html   200
-/certificates  /index.html   200
+﻿/login    /index.html   200
+/admin    /index.html   200
+/*        /index.html   200
