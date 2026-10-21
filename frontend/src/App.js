@@ -8,6 +8,7 @@ import './styles/App.css';
 import { AuthProvider } from './context/AuthContext';
 
 // Components
+import PublicPortfolio from './components/Public/PublicPortfolio';
 import Login from './components/Admin/Login';
 import AdminLayout from './components/Admin/AdminLayout';
 import Dashboard from './components/Admin/Dashboard';
@@ -33,7 +34,10 @@ function App() {
       <Router>
         <div className="app-container">
           <Routes>
-            {/* Public Routes */}
+            {/* Public Homepage */}
+            <Route path="/" element={<PublicPortfolio />} />
+            
+            {/* Login Route */}
             <Route path="/login" element={<Login />} />
             
             {/* Protected Admin Routes */}
@@ -64,7 +68,9 @@ function App() {
             <Route path="/videos" element={
               <ProtectedRoute>
                 <AdminLayout>
-                  <VideosManager />
+                  <AdminLayout>
+                    <VideosManager />
+                  </AdminLayout>
                 </AdminLayout>
               </ProtectedRoute>
             } />
